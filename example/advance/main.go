@@ -89,10 +89,10 @@ func main() {
 	user, err := store.GetUser(ctx, 1)
 	log.Println(user, err)
 
-	dpig.Component(&store)
+	id := dpig.RegisterComponent(&store)
 
 	dpig.Change(dpig.MethodSelector{
-		Object: "UserStore",
+		Object: id,
 		Method: "GetUser",
 	}, dpig.Extend{Post: []dpig.PostCall{methodLogger}})
 
@@ -102,7 +102,7 @@ func main() {
 	breaker := &Breaker{}
 
 	dpig.Change(dpig.MethodSelector{
-		Object: "UserStore",
+		Object: id,
 		Method: "GetUser",
 	}, dpig.Extend{Around: []dpig.AroundCall{breaker.Around}})
 

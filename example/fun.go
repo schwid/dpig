@@ -8,23 +8,12 @@ import (
 )
 
 func main() {
-	dpig.InitEnv(map[dpig.MethodSelector]*dpig.Extend{
-		{
-			"Getter", "Get2",
-		}: {
-			Post: []dpig.PostCall{
-				func(in, out []reflect.Value) {
-					log.Println("post call", out[0].Interface())
-				},
-			},
-		},
-	})
 	var gg Getter
 	gg = &Fget{zzz: 9999}
-	dpig.Component(&gg)
+	id := dpig.RegisterComponent(&gg)
 	fmt.Println(gg.Get2(1, 2, 3))
 	dpig.Change(dpig.MethodSelector{
-		Object: "Getter", Method: "Get2"},
+		Object: id, Method: "Get2"},
 		dpig.Extend{
 			Post: []dpig.PostCall{
 				func(in, out []reflect.Value) {

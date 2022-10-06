@@ -8,15 +8,11 @@ import (
 	"unsafe"
 )
 
+var ObjectCounter int64
+
 type MethodSelector struct {
-	Object string
+	Object int64
 	Method string
-}
-
-var initState = map[MethodSelector]*Extend{}
-
-func InitEnv(enhances map[MethodSelector]*Extend) {
-	initState = enhances
 }
 
 func Change(s MethodSelector, e Extend) {
@@ -41,7 +37,7 @@ type object struct {
 	ref   []int64    // avoid gc
 }
 
-var appContext = map[string]*object{}
+var appContext = map[int64]*object{}
 
 type wrapper struct {
 	method reflect.Value
@@ -86,11 +82,19 @@ func (w *wrapper) Call(in []reflect.Value) (out []reflect.Value) {
 	return out
 }
 
-func Component(i interface{}) {
-	iv := reflect.ValueOf(i).Elem()
-	name := iv.Type().Name()
+func RegisterComponent(i interface{}) int64 {
+	return RegisterComponentValue(reflect.ValueOf(i))
+}
+
+func RegisterComponentValue(v reflect.Value) int64 {
+	return RegisterComponentValueElem(v.Elem())
+}
+
+func RegisterComponentValueElem(iv reflect.Value) int64 {
+	id := ObjectCounter
+	ObjectCounter++
 	obj := &object{}
-	appContext[name] = obj
+	appContext[id] = obj
 
 	n := iv.NumMethod()
 	ivv := (*iFaceValue)(unsafe.Pointer(&iv))
@@ -115,7 +119,7 @@ func Component(i interface{}) {
 	obj.fc = fc
 	obj.ref = arr
 	for i := 0; i < n; i++ {
-		wp := buildWrapper(name, ovp.Type().Method(i).Name, ovp.Method(i), ovp.Type().Method(i).Type)
+		wp := buildWrapper(id, ovp.Type().Method(i).Name, ovp.Method(i), ovp.Type().Method(i).Type)
 		obj.table[ovp.Type().Method(i).Name] = wp
 		fc.Methods[i] = wp
 
@@ -126,9 +130,10 @@ func Component(i interface{}) {
 		}
 	}
 	ivv.ptr.itab = nItab
+	return id
 }
 
-func buildWrapper(o, m string, method reflect.Value, mType reflect.Type) *wrapper {
+func buildWrapper(o int64, m string, method reflect.Value, mType reflect.Type) *wrapper {
 	w := &wrapper{
 		extend: &Extend{},
 		method: method,
@@ -136,14 +141,6 @@ func buildWrapper(o, m string, method reflect.Value, mType reflect.Type) *wrappe
 			ftyp: reflect.ValueOf(mType).Pointer(),
 		},
 	}
-
-	if exd, ok := initState[MethodSelector{
-		Object: o,
-		Method: m,
-	}]; ok {
-		w.extend = exd
-	}
-
 	w.impl.fn = w.Call
 	return w
 }
